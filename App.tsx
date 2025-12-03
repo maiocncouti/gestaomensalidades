@@ -867,33 +867,34 @@ const ClientList = () => {
   };
 
   const handleImportContact = async () => {
-    if ('contacts' in navigator && 'ContactsManager' in window) {
-      try {
-        const props = ['name', 'tel', 'icon'];
+    try {
+      // Contact Picker API - supported on Chrome/Android
+      if ('contacts' in navigator && 'ContactsManager' in window) {
+        const props = ['name', 'tel'];
         const contacts = await (navigator as any).contacts.select(props, { multiple: false });
-        if (contacts.length) {
+        
+        if (contacts.length > 0) {
           const contact = contacts[0];
-          const name = contact.name?.[0];
-          const tel = contact.tel?.[0];
-          const icon = contact.icon?.[0];
-
+          const name = contact.name?.[0] || '';
+          let phone = '';
+          
+          // Extract phone number if available
+          if (contact.tel && contact.tel.length > 0) {
+            phone = contact.tel[0].replace(/\D/g, '');
+          }
+          
           setEditingClient(prev => ({
             ...prev,
             name: name || prev.name,
-            whatsapp: tel ? tel.replace(/\D/g, '') : prev.whatsapp
+            whatsapp: phone || prev.whatsapp
           }));
-
-          if (icon) {
-              const reader = new FileReader();
-              reader.onload = (e) => setEditingClient(prev => ({...prev, profileImage: e.target?.result as string}));
-              reader.readAsDataURL(icon);
-          }
         }
-      } catch (ex) {
-        console.error("Erro ao importar contato", ex);
+      } else {
+        alert("A importação de contatos não é suportada neste navegador/dispositivo. Tente usar no celular (Android) via Chrome.");
       }
-    } else {
-      alert("A importação de contatos não é suportada neste navegador/dispositivo. Tente usar no celular (Android) via Chrome.");
+    } catch (error) {
+      console.error("Erro ao importar contato:", error);
+      alert("Não foi possível importar o contato. Verifique as permissões do navegador.");
     }
   };
 
@@ -2331,7 +2332,6 @@ const SettingsView = () => {
                     </p>
                  </div>
               </div>
-              <p className="text-xs text-gray-500 mt-2">ℹ️ Foto fixa - Imagem do suporte não pode ser alterada</p>
            </div>
 
           <button onClick={handleSave} className="bg-brand-blue text-white px-4 py-2 rounded mt-4">Salvar Alterações</button>
