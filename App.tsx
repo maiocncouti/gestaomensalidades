@@ -2310,12 +2310,13 @@ const SettingsView = () => {
                  <Briefcase size={16} /> Central de Atendimento
               </h4>
               <div className="flex items-center space-x-4 bg-blue-50 p-4 rounded-lg border border-blue-100">
-                 <div className="w-20 h-20">
+                 <div className="w-20 h-20 relative">
                      <img 
-                       src={SUPPORT_IMAGE} 
+                       src={localSettings.supportImage || SUPPORT_IMAGE} 
                        className="w-20 h-20 rounded-full object-cover border-2 border-white shadow-sm" 
                        alt="Suporte"
                      />
+                     <div className="absolute inset-0 rounded-full pointer-events-none"></div>
                  </div>
                  <div className="text-sm flex-1">
                     <p className="font-bold text-gray-800 mb-1">Contato Oficial</p>
@@ -2330,7 +2331,18 @@ const SettingsView = () => {
                        {SUPPORT_EMAIL}
                     </p>
                  </div>
+                 <input 
+                    type="file" 
+                    accept="image/*"
+                    onChange={(e) => e.target.files && handleImageUpload('supportImage', e.target.files[0])}
+                    className="hidden"
+                    id="support-image-input"
+                 />
+                 <label htmlFor="support-image-input" className="text-xs text-blue-500 cursor-pointer hover:text-blue-700 font-semibold">
+                    Alterar Foto
+                 </label>
               </div>
+              <p className="text-xs text-gray-500 mt-2">ℹ️ A foto do suporte é fixa e não pode ser removida</p>
            </div>
 
           <button onClick={handleSave} className="bg-brand-blue text-white px-4 py-2 rounded mt-4">Salvar Alterações</button>
