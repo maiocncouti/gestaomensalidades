@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect, createContext, useContext, useRef } from 'react';
+import ReactDOM from 'react-dom/client';
 import { 
   Users, Calendar, CreditCard, Settings as SettingsIcon, 
   MessageCircle, BarChart2, Plus, Trash2, Edit2, 
   Check, AlertTriangle, Key, Save, Upload, Download,
-  Menu, X, DollarSign, RefreshCw, Image as ImageIcon, Camera, Lock, Clock, AlertOctagon, MessageSquare, Briefcase, ChevronDown, ChevronUp, Calendar as CalendarIcon, FileText, Phone, UserPlus, Crown, Star, ShieldCheck, Award, Cake, QrCode, Share2, Search, Filter
+  Menu, X, DollarSign, RefreshCw, Image as ImageIcon, Camera, Lock, Clock, AlertOctagon, MessageSquare, Briefcase, ChevronDown, ChevronUp, Calendar as CalendarIcon, FileText, Phone, UserPlus, Crown, Star, ShieldCheck, Award, Cake, QrCode, Share2, Search, Filter, Monitor
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
@@ -79,6 +79,7 @@ const INITIAL_DATA: AppData = {
     dashboardBirthdayDays: 0,
     dashboardShowAccounts: true,
     dashboardAccountsDays: 7,
+    dashboardShowPaymentMonitoring: true,
     pixName: '',
     pixKeyType: 'email',
     pixKey: ''
@@ -439,6 +440,7 @@ const SplashScreen = ({ onFinish }: { onFinish: () => void }) => {
 const Dashboard = () => {
   const { data, isLicenseValid } = useContext(AppContext);
   const { clients, accountsPayable, settings } = data;
+  const [paymentFilter, setPaymentFilter] = useState<'today' | '7days' | '30days' | 'overdue'>('overdue');
   
   const today = new Date();
   today.setHours(0,0,0,0);
@@ -448,6 +450,7 @@ const Dashboard = () => {
   const showClientAlerts = settings.dashboardShowClientAlerts ?? true;
   const showBirthdays = settings.dashboardShowBirthdays ?? true;
   const birthdayDays = settings.dashboardBirthdayDays || 0;
+  const showPaymentMonitoring = settings.dashboardShowPaymentMonitoring ?? true;
 
   const receivables = clients.reduce((acc, client) => {
     if (client.paymentStatus === 'paid') return acc;
@@ -522,6 +525,34 @@ const Dashboard = () => {
     const diff = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
     return diff <= accountsDays; 
   }).sort((a, b) => parseLocalDate(a.dueDate).getTime() - parseLocalDate(b.dueDate).getTime());
+
+  // Logic for "Clientes em Acompanhamento de Pagamento" Card
+  const filteredPaymentClients = clients.filter(client => {
+    if (client.paymentStatus === 'paid') return false; // Only show pending
+
+    // Use Payment Date if exists, else Due Date
+    const targetDateStr = client.paymentDate || client.dueDate;
+    const targetDate = parseLocalDate(targetDateStr);
+    
+    const diffTime = targetDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (paymentFilter === 'overdue') {
+      return diffDays < 0;
+    } else if (paymentFilter === 'today') {
+      return diffDays === 0;
+    } else if (paymentFilter === '7days') {
+      return diffDays > 0 && diffDays <= 7;
+    } else if (paymentFilter === '30days') {
+      return diffDays > 0 && diffDays <= 30;
+    }
+    return false;
+  }).sort((a, b) => {
+    const dateA = parseLocalDate(a.paymentDate || a.dueDate);
+    const dateB = parseLocalDate(b.paymentDate || b.dueDate);
+    return dateA.getTime() - dateB.getTime();
+  });
+
 
   return (
     <div className="p-4 space-y-4 pb-20 md:pb-4">
@@ -614,6 +645,86 @@ const Dashboard = () => {
           </div>
         )}
       </div>
+
+       {/* Clientes em Acompanhamento de Pagamento - NEW CARD */}
+       {showPaymentMonitoring && (
+        <div className="bg-white rounded-lg shadow mt-6">
+          <div className="p-4 border-b flex flex-col md:flex-row justify-between items-center">
+            <div className="flex items-center mb-2 md:mb-0">
+              <Monitor className="text-blue-600 mr-2" size={20}/>
+              <h3 className="font-bold text-lg text-gray-800">Clientes em Acompanhamento de Pagamento</h3>
+            </div>
+            <select 
+              className="p-2 border rounded text-sm bg-gray-50"
+              value={paymentFilter}
+              onChange={(e) => setPaymentFilter(e.target.value as any)}
+            >
+              <option value="overdue">Clientes em Débito (Vencidos)</option>
+              <option value="today">Vencimento Hoje</option>
+              <option value="7days">Próximos 7 Dias</option>
+              <option value="30days">Próximos 30 Dias</option>
+            </select>
+          </div>
+          <div className="overflow-x-auto">
+            {filteredPaymentClients.length === 0 ? (
+              <div className="p-8 text-center text-gray-500">
+                <p>Nenhum cliente encontrado para este filtro.</p>
+              </div>
+            ) : (
+              <table className="min-w-full text-sm text-left">
+                <thead className="bg-gray-50 text-gray-600 font-medium">
+                  <tr>
+                    <th className="p-3">Nome do Cliente</th>
+                    <th className="p-3">Valor</th>
+                    <th className="p-3">Data Pagamento</th>
+                    <th className="p-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filteredPaymentClients.map(client => {
+                    const plan = data.plans.find(p => p.id === client.planId);
+                    const amount = client.amountOwed !== undefined ? client.amountOwed : (plan ? plan.price : 0);
+                    const paymentDateStr = client.paymentDate || client.dueDate;
+                    const paymentDate = parseLocalDate(paymentDateStr);
+                    
+                    // Visual Indicators Logic
+                    const diffTime = paymentDate.getTime() - today.getTime();
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    
+                    let nameStyle = "text-gray-800 font-medium";
+                    if (diffDays < 0) nameStyle = "text-red-600 animate-pulse font-bold"; // Overdue
+                    else if (diffDays === 0) nameStyle = "text-orange-500 font-bold"; // Today
+                    else if (diffDays > 0) nameStyle = "text-green-600 font-bold"; // Future
+
+                    return (
+                      <tr key={client.id} className="hover:bg-gray-50">
+                        <td className="p-3">
+                          <div className="flex items-center">
+                            {client.profileImage && (
+                              <img src={client.profileImage} className="w-8 h-8 rounded-full object-cover mr-2" />
+                            )}
+                            <span className={nameStyle}>{client.name}</span>
+                          </div>
+                        </td>
+                        <td className="p-3">R$ {amount.toFixed(2)}</td>
+                        <td className="p-3">
+                          {paymentDate.toLocaleDateString('pt-BR')}
+                          {client.paymentDate ? <span className="text-xs text-gray-400 ml-1">(Definida)</span> : <span className="text-xs text-gray-400 ml-1">(Plano)</span>}
+                        </td>
+                        <td className="p-3">
+                          <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs font-semibold">
+                            A Pagar
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+       )}
 
       {settings.dashboardShowAccounts && (isLicenseValid || data.accountsPayable.length > 0) && (
         <div className="bg-white p-4 rounded-lg shadow mt-6">
@@ -1923,8 +2034,8 @@ const CommunicationView = () => {
     <div className="pb-20 md:pb-0">
       <h2 className="text-xl font-bold mb-4">Modelos de Mensagem</h2>
       
-      <div className="grid md:grid-cols-2 gap-4">
-        <div className="bg-white p-4 rounded shadow h-fit">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+        <div className="bg-white p-4 rounded shadow h-fit md:col-span-1 w-full min-w-0">
            <h3 className="font-bold mb-2">Novo Modelo</h3>
            <input 
              className="w-full p-2 border rounded mb-2"
@@ -1940,7 +2051,16 @@ const CommunicationView = () => {
              <option value="general">Geral</option>
              <option value="renewal">Renovação</option>
              <option value="offer">Oferta</option>
-             <option value="birthday">Aniversário</option>
+             <option value="birthday">Aniversário (Geral)</option>
+             <option value="overdue">Vencidos</option>
+             <option value="due_soon">A Vencer</option>
+             <option value="black_friday">Black Friday</option>
+             <option value="gratitude">Agradecimentos</option>
+             <option value="support_solved">Solução de Suporte</option>
+             <option value="blocked">Bloqueios</option>
+             <option value="contract_anniversary">Aniversário da Contratação</option>
+             <option value="client_birthday">Aniversário do Cliente</option>
+             <option value="plans">Planos</option>
            </select>
            <textarea 
              className="w-full p-2 border rounded mb-2 h-32"
@@ -1959,7 +2079,7 @@ const CommunicationView = () => {
            </button>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-2 md:col-span-2">
           <SearchFilterBar 
              searchTerm={searchTerm} 
              setSearchTerm={setSearchTerm} 
@@ -2173,32 +2293,42 @@ const SettingsView = () => {
                       onChange={e => setLocalSettings({...localSettings, dashboardBirthdayDays: Number(e.target.value)})}
                    />
                 </div>
+                <div className="flex items-center justify-between bg-gray-50 p-2 rounded">
+                   <span className="text-sm">Acompanhamento Pagamento</span>
+                   <input 
+                      type="checkbox" 
+                      checked={localSettings.dashboardShowPaymentMonitoring}
+                      onChange={e => setLocalSettings({...localSettings, dashboardShowPaymentMonitoring: e.target.checked})}
+                   />
+                </div>
              </div>
           </div>
           
            {/* Support Section */}
            <div className="mb-4 pt-4 border-t" id="suporte">
-              <h4 className="font-semibold text-sm mb-2">Suporte</h4>
-              <div className="flex items-center space-x-4">
-                 <div className="relative group w-20 h-20">
+              <h4 className="font-semibold text-sm mb-4 flex items-center gap-2">
+                 <Briefcase size={16} /> Central de Atendimento
+              </h4>
+              <div className="flex items-center space-x-4 bg-blue-50 p-4 rounded-lg border border-blue-100">
+                 <div className="w-20 h-20">
                      <img 
-                       src={localSettings.supportImage || SUPPORT_IMAGE} 
-                       className="w-20 h-20 rounded-full object-cover border" 
+                       src={SUPPORT_IMAGE} 
+                       className="w-20 h-20 rounded-full object-cover border-2 border-white shadow-sm" 
                        alt="Suporte"
                      />
-                     <label className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity text-white text-xs text-center">
-                        Alterar Foto
-                        <input 
-                           type="file" 
-                           accept="image/*"
-                           onChange={(e) => e.target.files && handleImageUpload('supportImage', e.target.files[0])}
-                           className="hidden"
-                        />
-                     </label>
                  </div>
-                 <div className="text-sm">
-                    <p>WhatsApp: <a href={`https://wa.me/${SUPPORT_PHONE}`} className="text-green-600 font-bold">{SUPPORT_PHONE}</a></p>
-                    <p>Email: {SUPPORT_EMAIL}</p>
+                 <div className="text-sm flex-1">
+                    <p className="font-bold text-gray-800 mb-1">Contato Oficial</p>
+                    <p className="mb-1 flex items-center">
+                       <Phone size={14} className="mr-2 text-green-600"/>
+                       <a href={`https://wa.me/${SUPPORT_PHONE}`} className="text-green-600 font-bold hover:underline">
+                          {SUPPORT_PHONE}
+                       </a>
+                    </p>
+                    <p className="flex items-center text-gray-600">
+                       <MessageCircle size={14} className="mr-2"/>
+                       {SUPPORT_EMAIL}
+                    </p>
                  </div>
               </div>
            </div>
@@ -2243,7 +2373,7 @@ const LicensePlansPage = () => {
             <div className="absolute top-0 right-0 p-4 opacity-20"><Star size={64}/></div>
             <h3 className="text-2xl font-bold mb-2">Mensal</h3>
             <p className="text-blue-100 mb-6 text-sm">Ideal para testar</p>
-            <div className="text-4xl font-extrabold mb-6">R$ 2,90<span className="text-lg font-normal">/mês</span></div>
+            <div className="text-4xl font-extrabold mb-6">R$ 3,90<span className="text-lg font-normal">/mês</span></div>
             <ul className="text-sm space-y-3 mb-8">
               <li className="flex items-center"><Check size={18} className="mr-2"/> Todos os recursos liberados</li>
               <li className="flex items-center"><Check size={18} className="mr-2"/> Suporte prioritário</li>
@@ -2251,7 +2381,7 @@ const LicensePlansPage = () => {
               <li className="flex items-center"><Check size={18} className="mr-2"/> Cancelamento a qualquer momento</li>
             </ul>
             <button 
-              onClick={() => openWhatsApp('Plano Mensal', 'R$ 2,90')}
+              onClick={() => openWhatsApp('Plano Mensal', 'R$ 3,90')}
               className="w-full bg-white text-blue-600 py-3 rounded-xl font-bold hover:bg-gray-100 shadow-md transition"
             >
               Começar Agora

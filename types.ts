@@ -54,6 +54,7 @@ export interface Settings {
   dashboardBirthdayDays: number; // Days to look ahead for birthdays
   dashboardShowAccounts: boolean; // Show accounts on dashboard
   dashboardAccountsDays: number; // Days to look ahead for accounts
+  dashboardShowPaymentMonitoring: boolean; // Toggle for payment monitoring card
   
   // Pix Settings
   pixName: string;
@@ -79,7 +80,7 @@ export interface AppData {
 export interface MessageTemplate {
   id: string;
   title: string;
-  type: 'renewal' | 'offer' | 'combo' | 'discount' | 'birthday' | 'general';
+  type: 'renewal' | 'offer' | 'combo' | 'discount' | 'birthday' | 'general' | 'overdue' | 'due_soon' | 'black_friday' | 'gratitude' | 'support_solved' | 'blocked' | 'contract_anniversary' | 'client_birthday' | 'plans';
   content: string;
 }
 
