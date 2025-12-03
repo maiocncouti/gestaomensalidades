@@ -1,5 +1,5 @@
 {
-  "name": "6.1 GESTAO CONTROLE DE PLANOS",
-  "description": "Gerenciamento completo de clientes IPTV, planos, vencimentos e licenciamento.",
+  "name": "1.1 GESTAO PLANOS",
+  "description": "Gerenciamento completo de clientes IPTV, planos, vencimentos e Contas A Pagar.",
   "requestFramePermissions": []
 }

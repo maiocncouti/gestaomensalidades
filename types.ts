@@ -6,6 +6,11 @@ export interface Plan {
   description: string;
 }
 
+export interface PaymentHistoryItem {
+  date: string;
+  amount: number;
+}
+
 export interface Client {
   id: string;
   name: string;
@@ -20,6 +25,7 @@ export interface Client {
   notes?: string;
   createdAt?: string; // YYYY-MM-DD - Date of registration
   amountOwed?: number; // Specific amount owed (allows for 2x, 3x accumulation)
+  paymentHistory?: PaymentHistoryItem[];
 }
 
 export interface AccountInstallment {
@@ -50,16 +56,21 @@ export interface Settings {
   supportImage: string; // Image for the support contact section
   dashboardAlertDays: number; // Configurable days for expiration alerts
   dashboardShowClientAlerts: boolean; // Toggle for client alerts on dashboard
+  dashboardUrgentDays: number; // Configurable days for the 'Urgent' card (default 1)
   dashboardShowBirthdays: boolean; // Toggle for birthdays
   dashboardBirthdayDays: number; // Days to look ahead for birthdays
   dashboardShowAccounts: boolean; // Show accounts on dashboard
   dashboardAccountsDays: number; // Days to look ahead for accounts
   dashboardShowPaymentMonitoring: boolean; // Toggle for payment monitoring card
+  installDate?: string; // Track installation date for trial period
   
   // Pix Settings
   pixName: string;
   pixKeyType: 'cpf' | 'cnpj' | 'email' | 'phone' | 'random';
   pixKey: string;
+
+  // Language
+  language: 'pt' | 'en' | 'es';
 }
 
 export interface LicenseState {
